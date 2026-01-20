@@ -68,22 +68,71 @@ def continuous_monitoring(image_path, model, tfidf, interval=2):
     except KeyboardInterrupt:
         print("\nMonitoring stopped.")
 
+def continuous_video_monitoring(video_path, model, tfidf, sample_every=30):
+    """
+    Simulate continuous monitoring using a video feed.
+    OCR is applied every `sample_every` frames.
+    """
+    cap = cv2.VideoCapture(video_path)
+
+    if not cap.isOpened():
+        print("Error: Could not open video.")
+        return
+
+    frame_count = 0
+    print("Starting video-based monitoring... Press Ctrl+C to stop.")
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            frame_count += 1
+
+            # Sample every N frames
+            if frame_count % sample_every == 0:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                text = pytesseract.image_to_string(gray)
+
+                risk_score = classify_email(text, model, tfidf)
+
+                print("\n--- OCR Output (first 200 chars) ---")
+                print(text[:200])
+                print(f"Phishing Risk Score: {risk_score:.3f}")
+                print(interpret_risk(risk_score))
+
+            # Optional: show video feed
+            cv2.imshow("Email Monitoring Feed", frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    except KeyboardInterrupt:
+        print("\nMonitoring stopped.")
+
+    cap.release()
+    cv2.destroyAllWindows()
+
 def main():
     print("Loading phishing classifier...")
     model, tfidf = load_trained_model()
 
-    image_path = "data/email_sample.png"
+    #image_path = "data/email_sample.png"
 
-    print(f"\nProcessing email image: {image_path}")
-    text, risk_score = process_email_image(image_path, model, tfidf)
+    #print(f"\nProcessing email image: {image_path}")
+    #text, risk_score = process_email_image(image_path, model, tfidf)
 
-    print("\n--- Extracted Text ---")
-    print(text)
-    print(f"\nPhishing Risk Score: {risk_score:.3f}")
-    print(interpret_risk(risk_score))
+    #print("\n--- Extracted Text ---")
+    #print(text)
+    #print(f"\nPhishing Risk Score: {risk_score:.3f}")
+    #print(interpret_risk(risk_score))
 
     # Uncomment to enable continuous monitoring
     # continuous_monitoring(image_path, model, tfidf)
+    video_path = "data/email_video.mp4"
+    continuous_video_monitoring(video_path, model, tfidf)
+
 
 if __name__ == "__main__":
     main()
