@@ -1,0 +1,5 @@
+Dataset: Phishing Email Detection
+Model: TF-IDF + Logistic Regression
+Accuracy: 0.963
+F1 Score: 0.955
+Date: 2026-04-05 11:42:27
