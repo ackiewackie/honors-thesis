@@ -1,2 +1,6 @@
 pandas
 scikit-learn
+opencv-python
+pytesseract
+Pillow
+customtkinter>=5.2.0
