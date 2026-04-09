@@ -22,7 +22,7 @@ FONT    = "Segoe UI"
 class PhishingScannerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Phishing Scanner")
+        self.root.title("Sightline: Real-time Protection")
         self.root.geometry("480x720")
         self.root.configure(bg=BG)
         self.root.resizable(False, False)
@@ -30,6 +30,7 @@ class PhishingScannerApp:
         self.model, self.tfidf, self.model_name = load_model()
         self.auto_scan_job = None
         self.last_capture_path = None
+        self._last_risk_band = "LOW"
 
         self.build_ui()
 
@@ -55,16 +56,15 @@ class PhishingScannerApp:
         # Header
         header = tk.Frame(self.root, bg=BG_CARD, pady=18)
         header.pack(fill="x")
-        self._label(header, "Phishing Scanner", size=15, bold=True).pack()
-        self._label(header, "Real-time screen analysis", size=9, dim=True).pack(pady=(2, 0))
-        self._label(header, f"Model: {self.model_name}", size=8, dim=True).pack(pady=(2, 0))
+        self._label(header, "Sightline", size=15, bold=True).pack()
+        #self._label(header, f"Model: {self.model_name}", size=8, dim=True).pack(pady=(2, 0))
 
         # Buttons
         btn_frame = tk.Frame(self.root, bg=BG, pady=16)
         btn_frame.pack(fill="x", padx=24)
         self.scan_button = self._btn(btn_frame, "\u27f3  Scan Screen", self.scan_screen)
         self.scan_button.pack(fill="x", pady=(0, 8))
-        self.auto_button = self._btn(btn_frame, "\u25b6  Start Auto Scan (5s)", self.toggle_auto_scan, accent=False)
+        self.auto_button = self._btn(btn_frame, "\u25b6  Start Auto Scan (3s)", self.toggle_auto_scan, accent=False)
         self.auto_button.pack(fill="x")
 
         # Status
@@ -118,21 +118,20 @@ class PhishingScannerApp:
         self.band_label.config(fg=color)
         self.score_label.config(fg=color)
 
-    def scan_screen(self):
+    def scan_screen(self, auto=False):
         try:
             self.status_label.config(text="\u25cf  Preparing capture...", fg=FG_DIM)
             self.root.update_idletasks()
 
-            # Hide the app so it doesn't appear in screenshot
             self.root.withdraw()
             self.root.update()
-            time.sleep(0.3)  # small delay to ensure it's gone
+            time.sleep(0.3)
 
             image_path = capture_full_screen()
 
-            # Bring app back
             self.root.deiconify()
-            self.root.lift()
+            if not auto:
+                self.root.lift()
             self.root.update()
 
             self.last_capture_path = image_path
@@ -152,6 +151,7 @@ class PhishingScannerApp:
             self.score_label.config(text=f"{risk_score:.3f}")
             self.band_label.config(text=risk_band)
             self.set_risk_color(risk_band)
+            self._last_risk_band = risk_band
 
             self.ocr_textbox.delete("1.0", tk.END)
             self.ocr_textbox.insert(tk.END, extracted_text if extracted_text else "[No text detected]")
@@ -165,8 +165,13 @@ class PhishingScannerApp:
             messagebox.showerror("Error", str(e))
 
     def auto_scan_loop(self):
-        self.scan_screen()
-        self.auto_scan_job = self.root.after(5000, self.auto_scan_loop)
+        self.scan_screen(auto=True)
+        if self._last_risk_band in ("MEDIUM", "HIGH"):
+            self.root.deiconify()
+            self.root.wm_attributes("-topmost", True)
+            self.root.after(100, lambda: self.root.wm_attributes("-topmost", False))
+            self.root.focus_force()
+        self.auto_scan_job = self.root.after(3000, self.auto_scan_loop)
 
     def toggle_auto_scan(self):
         if self.auto_scan_job is None:
@@ -176,7 +181,7 @@ class PhishingScannerApp:
         else:
             self.root.after_cancel(self.auto_scan_job)
             self.auto_scan_job = None
-            self.auto_button.config(text="\u25b6  Start Auto Scan (5s)")
+            self.auto_button.config(text="\u25b6  Start Auto Scan (3s)")
             self.status_label.config(text="\u25cf  Auto scan stopped", fg=FG_DIM)
 
 
